@@ -32,9 +32,7 @@ namespace RpgApi.Controllers
         private async Task<bool> UsuarioExistente(string username)
         {
             if (await _context.TB_USUARIOS.AnyAsync(x => x.Username.ToLower() == username.ToLower()))
-            {
                 return true;
-            }
             return false;
         }
 
@@ -45,7 +43,7 @@ namespace RpgApi.Controllers
             try
             {
                 if (await UsuarioExistente(user.Username))
-                    throw new System.Exception("Nome de usuário já existe");
+                    throw new Exception("Nome de usuário já existe");
 
                 Criptografia.CriarPasswordHash(user.PasswordString, out byte[] hash, out byte[] salt);
                 user.PasswordString = string.Empty;
@@ -56,7 +54,7 @@ namespace RpgApi.Controllers
 
                 return Ok(user.Id);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest(ex.Message + " - " + ex.InnerException);
             }
@@ -69,16 +67,12 @@ namespace RpgApi.Controllers
             try
             {
                 Usuario? usuario = await _context.TB_USUARIOS
-                   .FirstOrDefaultAsync(x => x.Username.ToLower().Equals(credenciais.Username.ToLower()));
+                    .FirstOrDefaultAsync(x => x.Username.ToLower().Equals(credenciais.Username.ToLower()));
 
                 if (usuario == null)
-                {
-                    throw new System.Exception("Usuário não encontrado.");
-                }
+                    throw new Exception("Usuário não encontrado.");
                 else if (!Criptografia.VerificarPasswordHash(credenciais.PasswordString, usuario.PasswordHash, usuario.PasswordSalt))
-                {
-                    throw new System.Exception("Senha incorreta.");
-                }
+                    throw new Exception("Senha incorreta.");
                 else
                 {
                     usuario.DataAcesso = DateTime.Now;
@@ -87,11 +81,11 @@ namespace RpgApi.Controllers
 
                     usuario.PasswordHash = null;
                     usuario.PasswordSalt = null;
-                    
-                    return Ok(usuario.Id);
+                    usuario.Token = CriarToken(usuario);
+                    return Ok(usuario);
                 }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest(ex.Message + " - " + ex.InnerException);
             }
@@ -103,10 +97,10 @@ namespace RpgApi.Controllers
             try
             {
                 Usuario? usuario = await _context.TB_USUARIOS
-                   .FirstOrDefaultAsync(x => x.Username.ToLower().Equals(credenciais.Username.ToLower()));
+                    .FirstOrDefaultAsync(x => x.Username.ToLower().Equals(credenciais.Username.ToLower()));
 
                 if (usuario == null)
-                    throw new System.Exception("Usuário não encontrado.");
+                    throw new Exception("Usuário não encontrado.");
 
                 Criptografia.CriarPasswordHash(credenciais.PasswordString, out byte[] hash, out byte[] salt);
                 usuario.PasswordHash = hash;
@@ -116,7 +110,7 @@ namespace RpgApi.Controllers
                 int linhasAfetadas = await _context.SaveChangesAsync();
                 return Ok(linhasAfetadas);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest(ex.Message + " - " + ex.InnerException);
             }
@@ -130,7 +124,7 @@ namespace RpgApi.Controllers
                 List<Usuario> lista = await _context.TB_USUARIOS.ToListAsync();
                 return Ok(lista);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest(ex.Message + " - " + ex.InnerException);
             }
@@ -142,14 +136,14 @@ namespace RpgApi.Controllers
             try
             {
                 Usuario? usuario = await _context.TB_USUARIOS
-                   .FirstOrDefaultAsync(x => x.Id == usuarioId);
+                    .FirstOrDefaultAsync(x => x.Id == usuarioId);
 
                 if (usuario == null)
                     return NotFound("Usuário não encontrado.");
 
                 return Ok(usuario);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
@@ -161,14 +155,14 @@ namespace RpgApi.Controllers
             try
             {
                 Usuario? usuario = await _context.TB_USUARIOS
-                   .FirstOrDefaultAsync(x => x.Username.ToLower() == login.ToLower());
+                    .FirstOrDefaultAsync(x => x.Username.ToLower() == login.ToLower());
 
                 if (usuario == null)
                     return NotFound("Usuário não encontrado.");
 
                 return Ok(usuario);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
@@ -180,7 +174,7 @@ namespace RpgApi.Controllers
             try
             {
                 Usuario? usuario = await _context.TB_USUARIOS
-                   .FirstOrDefaultAsync(x => x.Id == u.Id);
+                    .FirstOrDefaultAsync(x => x.Id == u.Id);
 
                 if (usuario == null)
                     return NotFound("Usuário não encontrado.");
@@ -196,7 +190,7 @@ namespace RpgApi.Controllers
                 int linhasAfetadas = await _context.SaveChangesAsync();
                 return Ok(linhasAfetadas);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
@@ -208,7 +202,7 @@ namespace RpgApi.Controllers
             try
             {
                 Usuario? usuario = await _context.TB_USUARIOS
-                   .FirstOrDefaultAsync(x => x.Id == u.Id);
+                    .FirstOrDefaultAsync(x => x.Id == u.Id);
 
                 if (usuario == null)
                     return NotFound("Usuário não encontrado.");
@@ -222,36 +216,66 @@ namespace RpgApi.Controllers
                 int linhasAfetadas = await _context.SaveChangesAsync();
                 return Ok(linhasAfetadas);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
-        } 
-        
-        [HttpPut("AtualizarFoto")] 
-        public async Task<IActionResult> AtualizarFoto(Usuario u) 
-        { 
-            try 
-            { 
-                Usuario? usuario = await _context.TB_USUARIOS  
-                   .FirstOrDefaultAsync(x => x.Id == u.Id); 
- 
+        }
+
+        [HttpPut("AtualizarFoto")]
+        public async Task<IActionResult> AtualizarFoto(Usuario u)
+        {
+            try
+            {
+                Usuario? usuario = await _context.TB_USUARIOS
+                    .FirstOrDefaultAsync(x => x.Id == u.Id);
+
                 if (usuario == null)
                     return NotFound("Usuário não encontrado.");
 
-                usuario.Foto = u.Foto;                 
- 
-                var attach = _context.Attach(usuario); 
-                attach.Property(x => x.Id).IsModified = false; 
-                attach.Property(x => x.Foto).IsModified = true;                 
- 
-                int linhasAfetadas = await _context.SaveChangesAsync();  
-                return Ok(linhasAfetadas);  
-            } 
-            catch (System.Exception ex) 
-            { 
-                return BadRequest(ex.Message); 
-            } 
-        } 
+                usuario.Foto = u.Foto;
+
+                var attach = _context.Attach(usuario);
+                attach.Property(x => x.Id).IsModified = false;
+                attach.Property(x => x.Foto).IsModified = true;
+
+                int linhasAfetadas = await _context.SaveChangesAsync();
+                return Ok(linhasAfetadas);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        private string CriarToken(Usuario usuario)
+        {
+            List<Claim> claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
+                new Claim(ClaimTypes.Name, usuario.Username),
+                new Claim(ClaimTypes.Role, usuario.Perfil)
+            };
+
+            string? tokenConfig = _configuration.GetSection("ConfiguracaoToken:Chave").Value;
+
+            if (string.IsNullOrEmpty(tokenConfig))
+                throw new Exception("Chave de configuração do Token não encontrada.");
+
+            SymmetricSecurityKey key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenConfig));
+            SigningCredentials creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+
+            SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.Now.AddDays(1),
+                SigningCredentials = creds
+            };
+
+            JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
+            SecurityToken token = tokenHandler.CreateToken(tokenDescriptor);
+
+            return tokenHandler.WriteToken(token);
+        }
     }
 }

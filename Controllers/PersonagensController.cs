@@ -9,9 +9,12 @@ using RpgApi.Models;
 using RpgApi.Models.Enuns;
 using Microsoft.AspNetCore.Authorization;
 using System.Data;
+using RpgApi.Extensions;
+
+
 
 namespace RpgApi.Controllers
-{    
+{   [Authorize] 
     [ApiController]
     [Route("[controller]")]
     public class PersonagensController : ControllerBase
@@ -59,17 +62,20 @@ namespace RpgApi.Controllers
         [HttpPost]
         public async Task<IActionResult> Add(Personagem novoPersonagem)
         {
-            try
-            {
-                await _context.TB_PERSONAGENS.AddAsync(novoPersonagem);
-                await _context.SaveChangesAsync();
+        try
+        {
+        novoPersonagem.Usuario = await _context.TB_USUARIOS
+            .FirstOrDefaultAsync(u => u.Id == User.UsuarioId());
 
-                return Ok(novoPersonagem.Id);
-            }
-            catch (System.Exception ex)
-            {
-                return BadRequest(ex.Message + " - " + ex.InnerException);
-            }
+        await _context.TB_PERSONAGENS.AddAsync(novoPersonagem);
+        await _context.SaveChangesAsync();
+
+        return Ok(novoPersonagem.Id);
+        }
+        catch (System.Exception ex)
+        {
+        return BadRequest(ex.Message + " - " + ex.InnerException);
+        }
         }
 
         [HttpPut]
@@ -258,6 +264,25 @@ namespace RpgApi.Controllers
             {
                 return BadRequest(ex.Message);
             }
+        }
+
+        [HttpGet("GetByUser")]
+        public async Task<IActionResult> GetByUserAsync()
+        {
+        try
+        {
+        int id = User.UsuarioId();
+
+        List<Personagem> lista = await _context.TB_PERSONAGENS
+            .Where(u => u.Usuario.Id == id)
+            .ToListAsync();
+
+        return Ok(lista);
+        }
+        catch (System.Exception ex)
+        {
+        return BadRequest(ex.Message + " - " + ex.InnerException);
+        }
         }
     }
 }
